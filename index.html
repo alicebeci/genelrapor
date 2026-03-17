@@ -1,0 +1,1466 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4CAF50">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%234CAF50' width='100' height='100' rx='20'/%3E%3Ctext x='50' y='65' font-size='50' text-anchor='middle' fill='white'%3E📊%3C/text%3E%3C/svg%3E">
+    
+    <title>Belediye Analiz Sistemi</title>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- SheetJS -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <!-- PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        :root {
+            --primary: #4CAF50;
+            --primary-dark: #45a049;
+            --secondary: #2196F3;
+            --accent: #FF9800;
+            --danger: #f44336;
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+        }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0; 
+            padding: 15px; 
+            background: var(--bg); 
+            touch-action: manipulation;
+            color: #333;
+        }
+        
+        .container { 
+            max-width: 100%; 
+            background: var(--card-bg); 
+            border-radius: 24px; 
+            padding: 24px; 
+            box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+        }
+        
+        h2 { 
+            margin: 0 0 8px 0; 
+            color: #1a1a1a; 
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .file-status {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .status-badge {
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f5f5f5;
+            color: #666;
+            border: 2px dashed #ddd;
+            transition: all 0.3s;
+        }
+        
+        .status-badge.active {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 2px solid var(--primary);
+        }
+        
+        .file-type-selector {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            background: #f5f5f5;
+            padding: 6px;
+            border-radius: 16px;
+        }
+        
+        .type-btn {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            background: transparent;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .type-btn.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        
+        .type-btn.pdf.active { color: #f44336; }
+        .type-btn.excel.active { color: #4CAF50; }
+        
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+        
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+        
+        .file-input-label {
+            display: block;
+            padding: 32px 24px;
+            background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+            border: 2px dashed var(--secondary);
+            border-radius: 20px;
+            text-align: center;
+            color: var(--secondary);
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .file-input-label.pdf-mode {
+            background: linear-gradient(135deg, #ffebee 0%, #fce4ec 100%);
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+        
+        .file-input-label.excel-mode {
+            background: linear-gradient(135deg, #e8f5e9 0%, #e0f2f1 100%);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        
+        .file-input-label:active {
+            transform: scale(0.98);
+        }
+        
+        .file-icon {
+            font-size: 40px;
+            margin-bottom: 8px;
+            display: block;
+        }
+        
+        button.analyze-btn, button.combined-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            border-radius: 16px;
+            font-size: 17px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        
+        button.combined-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            display: none;
+        }
+        
+        button.combined-btn.visible {
+            display: flex !important;
+        }
+        
+        button.analyze-btn:disabled, button.combined-btn:disabled {
+            background: #ccc;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+        
+        button.analyze-btn:not(:disabled):active, button.combined-btn:not(:disabled):active {
+            transform: translateY(2px);
+        }
+        
+        .reset-btn {
+            width: 100%;
+            padding: 14px;
+            background: transparent;
+            color: #666;
+            border: 2px solid #ddd;
+            border-radius: 16px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .spinner {
+            width: 56px;
+            height: 56px;
+            border: 4px solid #e0e0e0;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .result {
+            display: none;
+            margin-top: 28px;
+            animation: slideUp 0.4s ease;
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .district-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 24px;
+            border-radius: 20px;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+        
+        .district-name {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .district-meta {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        /* Birleştirilmiş Rapor Stilleri */
+        .report-section {
+            margin-bottom: 32px;
+        }
+        
+        .report-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #e0e0e0;
+        }
+        
+        .report-title.yapi { border-bottom-color: #4CAF50; }
+        .report-title.bolum { border-bottom-color: #2196F3; }
+        
+        /* Ana Kart - Büyük */
+        .main-stat-card {
+            background: white;
+            border-radius: 24px;
+            padding: 32px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+            border: 4px solid transparent;
+        }
+        
+        .main-stat-card.yapi {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            border-color: #4CAF50;
+        }
+        
+        .main-stat-card.bolum-mesken {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-color: #2196F3;
+        }
+        
+        .main-stat-card.bolum-isyeri {
+            background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+            border-color: #FF9800;
+        }
+        
+        .main-stat-card.bolum-total {
+            background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+            border-color: #9C27B0;
+        }
+        
+        .main-label {
+            font-size: 16px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #555;
+            margin-bottom: 16px;
+        }
+        
+        .main-value {
+            font-size: 56px;
+            font-weight: 800;
+            color: #1a1a1a;
+            line-height: 1;
+        }
+        
+        /* Alt Kırılım Kartları - Küçük */
+        .sub-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+        }
+        
+        .sub-stat-card {
+            background: rgba(255,255,255,0.7);
+            border-radius: 16px;
+            padding: 16px 12px;
+            text-align: center;
+            border: 2px solid rgba(0,0,0,0.08);
+        }
+        
+        .sub-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .sub-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+        }
+        
+        /* PDF Detay Kartları - Küçük */
+        .detail-cards {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .detail-card {
+            background: #f8f9fa;
+            border-radius: 16px;
+            padding: 16px;
+            text-align: center;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .detail-card .label {
+            font-size: 12px;
+            color: #666;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+        
+        .detail-card .value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+        
+        /* Web Düzeni */
+        .web-layout {
+            display: grid;
+            gap: 20px;
+        }
+        
+        @media (min-width: 992px) {
+            .web-layout {
+                grid-template-columns: 380px 1fr;
+                align-items: start;
+            }
+        }
+        
+        .total-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .total-card {
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+            border: 3px solid transparent;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        }
+        
+        .total-card.mesken { 
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); 
+            border-color: #4CAF50; 
+        }
+        .total-card.isyeri { 
+            background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); 
+            border-color: #FF9800; 
+        }
+        .total-card.grand { 
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%); 
+            color: white;
+            border-color: #2e7d32;
+        }
+        
+        .total-card .label {
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            opacity: 0.9;
+        }
+        
+        .total-card.grand .label {
+            color: rgba(255,255,255,0.95);
+        }
+        
+        .total-card .value {
+            font-size: 36px;
+            font-weight: 800;
+            color: #1a1a1a;
+        }
+        
+        .total-card.grand .value {
+            color: white;
+            font-size: 42px;
+        }
+        
+        /* Grafik Container - Toggle özelliği */
+        .chart-wrapper {
+            margin-bottom: 24px;
+        }
+        
+        .chart-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: white;
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+        
+        .chart-toggle:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+        
+        .chart-toggle-text {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .chart-toggle-icon {
+            font-size: 24px;
+            transition: transform 0.3s;
+        }
+        
+        .chart-toggle-icon.open {
+            transform: rotate(180deg);
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            height: 400px;
+            position: relative;
+            display: none;
+            animation: slideDown 0.3s ease;
+        }
+        
+        .chart-container.open {
+            display: block;
+        }
+        
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .chart-container canvas {
+            max-height: 100% !important;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        
+        th {
+            background: #f5f5f5;
+            padding: 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #666;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        td {
+            padding: 16px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        tr:hover {
+            background: #fafafa;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-mesken { background: #e8f5e9; color: #2e7d32; }
+        .badge-isyeri { background: #fff3e0; color: #ef6c00; }
+        .badge-kamu { background: #e3f2fd; color: #1565c0; }
+        
+        .error {
+            display: none;
+            background: #ffebee;
+            color: #c62828;
+            padding: 20px;
+            border-radius: 16px;
+            margin-top: 20px;
+            font-size: 14px;
+            border-left: 4px solid #c62828;
+        }
+        
+        .file-name {
+            text-align: center;
+            color: var(--primary);
+            font-weight: 600;
+            margin: 12px 0;
+            font-size: 15px;
+            word-break: break-all;
+            padding: 12px;
+            background: #f5f5f5;
+            border-radius: 12px;
+        }
+        
+        .install-btn {
+            display: none;
+            width: 100%;
+            padding: 16px;
+            background: var(--secondary);
+            color: white;
+            border: none;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+        
+        .combined-indicator {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px 20px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            font-weight: 600;
+        }
+        
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>📊 Belediye Analiz Sistemi</h2>
+        <div class="subtitle">
+            <span>🏛️</span>
+            <span>İlçe yapı ve bağımsız bölüm analizi</span>
+        </div>
+        
+        <button class="install-btn" id="installBtn" onclick="installPWA()">
+            📲 Ana Ekrana Ekle
+        </button>
+        
+        <!-- Dosya Durumları -->
+        <div class="file-status" id="fileStatus">
+            <div class="status-badge" id="pdfStatus">
+                <span>📄</span> PDF: Bekleniyor
+            </div>
+            <div class="status-badge" id="excelStatus">
+                <span>📊</span> Excel: Bekleniyor
+            </div>
+        </div>
+        
+        <div class="file-type-selector">
+            <button class="type-btn pdf active" onclick="setFileType('pdf')">
+                <span>📄</span> PDF Yükle
+            </button>
+            <button class="type-btn excel" onclick="setFileType('excel')">
+                <span>📊</span> Excel Yükle
+            </button>
+        </div>
+        
+        <div class="file-input-wrapper">
+            <input type="file" id="fileInput" accept=".pdf,.xls,.xlsx" onchange="fileSelected()">
+            <label for="fileInput" class="file-input-label pdf-mode" id="fileLabel">
+                <span class="file-icon">📄</span>
+                <div id="labelText">PDF Dosyası Seçin</div>
+                <small style="opacity: 0.7; font-weight: normal;" id="labelSub">Bağımsız bölüm listesi</small>
+            </label>
+        </div>
+        
+        <div class="file-name" id="fileName" style="display: none;"></div>
+        
+        <button class="analyze-btn" onclick="analyzeFile()" id="analyzeBtn" disabled>
+            <span>🔍</span> Analiz Et
+        </button>
+        
+        <button class="combined-btn" onclick="showCombinedReport()" id="combinedBtn" disabled>
+            <span>📋</span> Birleştirilmiş Rapor Görüntüle
+        </button>
+        
+        <button class="reset-btn" onclick="resetAll()" id="resetBtn">
+            <span>🗑️</span> Tümünü Sıfırla
+        </button>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>Dosya analiz ediliyor...</div>
+        </div>
+        
+        <div class="error" id="error"></div>
+        
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        // Global değişkenler
+        let deferredPrompt;
+        let pdfData = null;
+        let excelData = null;
+        let currentFileType = 'pdf';
+        let currentFile = null;
+        let charts = {};
+        
+        // PWA Install
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installBtn').style.display = 'block';
+        });
+        
+        function installPWA() {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then(() => {
+                deferredPrompt = null;
+                document.getElementById('installBtn').style.display = 'none';
+            });
+        }
+        
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(console.error);
+        }
+        
+        // PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        function setFileType(type) {
+            console.log('setFileType:', type);
+            currentFileType = type;
+            
+            document.querySelectorAll('.type-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`.type-btn.${type}`).classList.add('active');
+            
+            const label = document.getElementById('fileLabel');
+            const labelText = document.getElementById('labelText');
+            const labelSub = document.getElementById('labelSub');
+            const input = document.getElementById('fileInput');
+            
+            // Input'u temizle ve yeni tip için hazırla
+            input.value = '';
+            currentFile = null;
+            
+            if (type === 'pdf') {
+                label.className = 'file-input-label pdf-mode';
+                labelText.textContent = pdfData ? 'PDF Değiştir (Yüklü: ' + pdfData.ilceAdi + ')' : 'PDF Dosyası Seçin';
+                labelSub.textContent = 'Bağımsız bölüm listesi';
+                input.accept = '.pdf,application/pdf';
+            } else {
+                label.className = 'file-input-label excel-mode';
+                labelText.textContent = excelData ? 'Excel Değiştir (Yüklü: ' + excelData.ilceAdi + ')' : 'Excel Dosyası Seçin';
+                labelSub.textContent = 'Mahalle yapı sayıları';
+                input.accept = '.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+            }
+            
+            document.getElementById('fileName').style.display = 'none';
+            document.getElementById('analyzeBtn').disabled = true;
+        }
+        
+        function fileSelected() {
+            const input = document.getElementById('fileInput');
+            const fileName = document.getElementById('fileName');
+            const btn = document.getElementById('analyzeBtn');
+            
+            if (input.files.length > 0) {
+                currentFile = input.files[0];
+                const extension = currentFile.name.split('.').pop().toLowerCase();
+                
+                console.log('Dosya seçildi:', currentFile.name, 'Tip:', currentFileType, 'Uzantı:', extension);
+                
+                // Dosya tipi kontrolü
+                if (currentFileType === 'pdf' && !['pdf'].includes(extension)) {
+                    showError('Lütfen PDF formatında bir dosya seçin');
+                    currentFile = null;
+                    input.value = '';
+                    return;
+                }
+                if (currentFileType === 'excel' && !['xls', 'xlsx'].includes(extension)) {
+                    showError('Lütfen Excel formatında bir dosya seçin');
+                    currentFile = null;
+                    input.value = '';
+                    return;
+                }
+                
+                fileName.textContent = `📎 ${currentFile.name} (${(currentFile.size/1024).toFixed(1)} KB)`;
+                fileName.style.display = 'block';
+                btn.disabled = false;
+                document.getElementById('result').style.display = 'none';
+                document.getElementById('error').style.display = 'none';
+            } else {
+                currentFile = null;
+            }
+        }
+        
+        function showError(message) {
+            const error = document.getElementById('error');
+            error.textContent = '❌ ' + message;
+            error.style.display = 'block';
+            if (navigator.vibrate) navigator.vibrate(200);
+        }
+        
+        function updateStatus() {
+            const pdfStatus = document.getElementById('pdfStatus');
+            const excelStatus = document.getElementById('excelStatus');
+            const combinedBtn = document.getElementById('combinedBtn');
+            
+            if (pdfData && pdfData.ilceAdi) {
+                pdfStatus.classList.add('active');
+                pdfStatus.innerHTML = `<span>✅</span> PDF: ${pdfData.ilceAdi}`;
+            } else {
+                pdfStatus.classList.remove('active');
+                pdfStatus.innerHTML = `<span>📄</span> PDF: Bekleniyor`;
+            }
+            
+            if (excelData && excelData.ilceAdi) {
+                excelStatus.classList.add('active');
+                excelStatus.innerHTML = `<span>✅</span> Excel: ${excelData.ilceAdi}`;
+            } else {
+                excelStatus.classList.remove('active');
+                excelStatus.innerHTML = `<span>📊</span> Excel: Bekleniyor`;
+            }
+            
+            if (pdfData && excelData) {
+                combinedBtn.classList.add('visible');
+                combinedBtn.disabled = false;
+            } else {
+                combinedBtn.classList.remove('visible');
+                combinedBtn.disabled = true;
+            }
+        }
+        
+        async function analyzeFile() {
+            if (!currentFile) {
+                showError('Lütfen önce bir dosya seçin');
+                return;
+            }
+            
+            const loading = document.getElementById('loading');
+            const btn = document.getElementById('analyzeBtn');
+            
+            loading.style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+            btn.disabled = true;
+            
+            if (navigator.vibrate) navigator.vibrate(50);
+            
+            try {
+                if (currentFileType === 'pdf') {
+                    console.log('PDF analiz başlıyor...');
+                    pdfData = await analyzePDF(currentFile);
+                    console.log('PDF analiz tamamlandı:', pdfData);
+                    renderPDFResults(pdfData);
+                } else {
+                    console.log('Excel analiz başlıyor...');
+                    excelData = await analyzeExcel(currentFile);
+                    console.log('Excel analiz tamamlandı:', excelData);
+                    renderExcelResults(excelData);
+                }
+                updateStatus();
+            } catch (err) {
+                console.error('Analiz hatası:', err);
+                showError('Analiz hatası: ' + err.message);
+            } finally {
+                loading.style.display = 'none';
+                btn.disabled = false;
+            }
+        }
+        
+        async function analyzePDF(file) {
+            console.log('analyzePDF başladı, dosya:', file.name, 'boyut:', file.size);
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                console.log('ArrayBuffer oluşturuldu, boyut:', arrayBuffer.byteLength);
+                
+                const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+                console.log('PDF yüklendi, sayfa sayısı:', pdf.numPages);
+                
+                let fullText = '';
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    fullText += textContent.items.map(item => item.str).join(' ') + '\n';
+                }
+                
+                console.log('PDF metin uzunluğu:', fullText.length);
+                
+                const ilceMatch = fullText.match(/([A-ZİŞÇĞÜÖ\s]+)\s*İlçesi/i);
+                const ilceAdi = ilceMatch ? ilceMatch[1].trim() : 'İlçe Adı Tespit Edilemedi';
+                
+                console.log('Tespit edilen ilçe:', ilceAdi);
+                
+                const patterns = {
+                    ikamet_amacli: /İkamet\s*Amaçlı[:\s]*(\d[\d\s\.,]*)/i,
+                    ikamet_harici: /İkamet\s*Harici[:\s]*(\d[\d\s\.,]*)/i,
+                    kapici: /Kapıcı\s*Dairesi[:\s]*(\d[\d\s\.,]*)/i,
+                    mesken: /(?:^|\s)Mesken[:\s]*(\d[\d\s\.,]*)(?=\s|$)/m,
+                    toplam: /(?:İlçe\s*Toplam[:\s]*|Toplam[:\s]*)(\d[\d\s\.,]*)/i
+                };
+                
+                const values = {};
+                for (const [key, pattern] of Object.entries(patterns)) {
+                    const match = fullText.match(pattern);
+                    if (match) {
+                        values[key] = parseInt(match[1].replace(/[\s\.,]/g, ''));
+                        console.log(`${key} bulundu:`, values[key]);
+                    } else {
+                        console.log(`${key} bulunamadı`);
+                    }
+                }
+                
+                const meskenToplam = (values.ikamet_amacli || 0) + (values.ikamet_harici || 0) + 
+                                    (values.kapici || 0) + (values.mesken || 0);
+                const toplam = values.toplam || meskenToplam;
+                const isyeri = toplam - meskenToplam;
+                
+                return {
+                    ilceAdi,
+                    ikamet_amacli: values.ikamet_amacli || 0,
+                    ikamet_harici: values.ikamet_harici || 0,
+                    kapici: values.kapici || 0,
+                    mesken: values.mesken || 0,
+                    meskenToplam,
+                    isyeri,
+                    toplam
+                };
+            } catch (error) {
+                console.error('PDF analiz hatası:', error);
+                throw new Error('PDF okunamadı: ' + error.message);
+            }
+        }
+        
+        async function analyzeExcel(file) {
+            console.log('analyzeExcel başladı, dosya:', file.name);
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+                
+                console.log('Excel satır sayısı:', jsonData.length);
+                
+                const neighborhoods = [];
+                let currentNeighborhood = null;
+                let ilceAdi = 'İlçe Adı Tespit Edilemedi';
+                
+                if (jsonData[0] && jsonData[0][0]) {
+                    const match = jsonData[0][0].toString().match(/([A-ZİŞÇĞÜÖ\s]+)\s*İLÇESİ/i);
+                    if (match) ilceAdi = match[1].trim();
+                }
+                
+                console.log('Tespit edilen ilçe:', ilceAdi);
+                
+                for (let i = 0; i < jsonData.length; i++) {
+                    const row = jsonData[i];
+                    if (!row || row.length < 2) continue;
+                    
+                    const firstCol = row[0]?.toString().trim();
+                    const secondCol = row[1]?.toString().trim();
+                    
+                    if (firstCol && firstCol !== 'MAHALLE ADI' && !firstCol.includes('YAPI TİPİ') && 
+                        !firstCol.includes('TOPLAM') && secondCol && ['Mesken', 'Kamu', 'İşyeri'].includes(secondCol)) {
+                        currentNeighborhood = {
+                            name: firstCol,
+                            mesken: 0,
+                            kamu: 0,
+                            isyeri: 0,
+                            toplam: 0
+                        };
+                        neighborhoods.push(currentNeighborhood);
+                    }
+                    
+                    if (currentNeighborhood && secondCol) {
+                        const count = parseInt(row[3] || row[2] || 0);
+                        if (secondCol === 'Mesken') currentNeighborhood.mesken = count;
+                        else if (secondCol === 'Kamu') currentNeighborhood.kamu = count;
+                        else if (secondCol === 'İşyeri') currentNeighborhood.isyeri = count;
+                    }
+                }
+                
+                neighborhoods.forEach(n => {
+                    n.toplam = n.mesken + n.kamu + n.isyeri;
+                });
+                
+                const genelToplam = {
+                    mesken: neighborhoods.reduce((a, b) => a + b.mesken, 0),
+                    kamu: neighborhoods.reduce((a, b) => a + b.kamu, 0),
+                    isyeri: neighborhoods.reduce((a, b) => a + b.isyeri, 0)
+                };
+                genelToplam.toplam = genelToplam.mesken + genelToplam.kamu + genelToplam.isyeri;
+                
+                console.log('Excel analiz tamamlandı. Mahalle sayısı:', neighborhoods.length);
+                
+                return {
+                    ilceAdi,
+                    neighborhoods,
+                    genelToplam
+                };
+            } catch (error) {
+                console.error('Excel analiz hatası:', error);
+                throw new Error('Excel okunamadı: ' + error.message);
+            }
+        }
+        
+        // Grafik toggle fonksiyonu
+        function toggleChart(chartId) {
+            const container = document.getElementById(chartId);
+            const icon = document.getElementById(chartId + 'Icon');
+            
+            if (container.classList.contains('open')) {
+                container.classList.remove('open');
+                icon.classList.remove('open');
+                icon.textContent = '▼';
+            } else {
+                container.classList.add('open');
+                icon.classList.add('open');
+                icon.textContent = '▲';
+            }
+        }
+        
+        function renderPDFResults(data) {
+            const result = document.getElementById('result');
+            
+            result.innerHTML = `
+                <div class="district-header">
+                    <div class="district-name">🏛️ ${data.ilceAdi}</div>
+                    <div class="district-meta">Bağımsız Bölüm Analizi</div>
+                </div>
+                
+                <div class="detail-cards">
+                    <div class="detail-card">
+                        <div class="label">İkamet Amaçlı</div>
+                        <div class="value">${data.ikamet_amacli.toLocaleString('tr-TR')}</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="label">İkamet Harici</div>
+                        <div class="value">${data.ikamet_harici.toLocaleString('tr-TR')}</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="label">Kapıcı Dairesi</div>
+                        <div class="value">${data.kapici.toLocaleString('tr-TR')}</div>
+                    </div>
+                    <div class="detail-card">
+                        <div class="label">Mesken</div>
+                        <div class="value">${data.mesken.toLocaleString('tr-TR')}</div>
+                    </div>
+                </div>
+                
+                <div class="web-layout">
+                    <div class="total-cards">
+                        <div class="total-card mesken">
+                            <div class="label">TOPLAM MESKEN</div>
+                            <div class="value">${data.meskenToplam.toLocaleString('tr-TR')}</div>
+                        </div>
+                        <div class="total-card isyeri">
+                            <div class="label">TOPLAM İŞYERİ</div>
+                            <div class="value">${data.isyeri.toLocaleString('tr-TR')}</div>
+                        </div>
+                        <div class="total-card grand">
+                            <div class="label">GENEL TOPLAM</div>
+                            <div class="value">${data.toplam.toLocaleString('tr-TR')}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-wrapper">
+                        <div class="chart-toggle" onclick="toggleChart('pdfChartContainer')">
+                            <div class="chart-toggle-text">
+                                <span>📊</span> Dağılım Grafiğini Göster/Gizle
+                            </div>
+                            <div class="chart-toggle-icon" id="pdfChartContainerIcon">▼</div>
+                        </div>
+                        <div class="chart-container" id="pdfChartContainer">
+                            <canvas id="pdfChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            result.style.display = 'block';
+            if (navigator.vibrate) navigator.vibrate([50, 100, 50]);
+            
+            // Grafiği oluştur ama gösterme
+            setTimeout(() => {
+                const ctx = document.getElementById('pdfChart').getContext('2d');
+                if (charts.pdf) charts.pdf.destroy();
+                
+                charts.pdf = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['İkamet Amaçlı', 'İkamet Harici', 'Kapıcı Dairesi', 'Mesken', 'İşyeri'],
+                        datasets: [{
+                            data: [data.ikamet_amacli, data.ikamet_harici, data.kapici, data.mesken, data.isyeri],
+                            backgroundColor: ['#4CAF50', '#8BC34A', '#CDDC39', '#FFC107', '#FF9800'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    padding: 20,
+                                    usePointStyle: true,
+                                    font: { size: 12 }
+                                }
+                            }
+                        }
+                    }
+                });
+            }, 100);
+        }
+        
+        function renderExcelResults(data) {
+            const result = document.getElementById('result');
+            
+            result.innerHTML = `
+                <div class="district-header">
+                    <div class="district-name">🏛️ ${data.ilceAdi}</div>
+                    <div class="district-meta">Mahalle Bazlı Yapı Analizi • ${data.neighborhoods.length} Mahalle</div>
+                </div>
+                
+                <div class="main-stat-card yapi">
+                    <div class="main-label">TOPLAM YAPI SAYISI</div>
+                    <div class="main-value">${data.genelToplam.toplam.toLocaleString('tr-TR')}</div>
+                    <div class="sub-stats-grid">
+                        <div class="sub-stat-card">
+                            <div class="sub-label">Mesken</div>
+                            <div class="sub-value">${data.genelToplam.mesken.toLocaleString('tr-TR')}</div>
+                        </div>
+                        <div class="sub-stat-card">
+                            <div class="sub-label">Kamu</div>
+                            <div class="sub-value">${data.genelToplam.kamu.toLocaleString('tr-TR')}</div>
+                        </div>
+                        <div class="sub-stat-card">
+                            <div class="sub-label">İşyeri</div>
+                            <div class="sub-value">${data.genelToplam.isyeri.toLocaleString('tr-TR')}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="chart-wrapper">
+                    <div class="chart-toggle" onclick="toggleChart('excelChartContainer')">
+                        <div class="chart-toggle-text">
+                            <span>📊</span> Yapı Tipi Dağılımını Göster/Gizle
+                        </div>
+                        <div class="chart-toggle-icon" id="excelChartContainerIcon">▼</div>
+                    </div>
+                    <div class="chart-container" id="excelChartContainer">
+                        <canvas id="excelChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="section-title">📋 Tüm Mahalleler</div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Mahalle</th>
+                                <th>Mesken</th>
+                                <th>Kamu</th>
+                                <th>İşyeri</th>
+                                <th>Toplam</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.neighborhoods.map(n => `
+                                <tr>
+                                    <td><strong>${n.name}</strong></td>
+                                    <td><span class="badge badge-mesken">${n.mesken.toLocaleString('tr-TR')}</span></td>
+                                    <td><span class="badge badge-kamu">${n.kamu.toLocaleString('tr-TR')}</span></td>
+                                    <td><span class="badge badge-isyeri">${n.isyeri.toLocaleString('tr-TR')}</span></td>
+                                    <td><strong>${n.toplam.toLocaleString('tr-TR')}</strong></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            result.style.display = 'block';
+            if (navigator.vibrate) navigator.vibrate([50, 100, 50]);
+            
+            setTimeout(() => {
+                const ctx = document.getElementById('excelChart').getContext('2d');
+                if (charts.excel) charts.excel.destroy();
+                
+                charts.excel = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Mesken', 'Kamu', 'İşyeri'],
+                        datasets: [{
+                            data: [data.genelToplam.mesken, data.genelToplam.kamu, data.genelToplam.isyeri],
+                            backgroundColor: ['#4CAF50', '#2196F3', '#FF9800'],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { padding: 20, usePointStyle: true }
+                            }
+                        }
+                    }
+                });
+            }, 100);
+        }
+        
+        function showCombinedReport() {
+            if (!pdfData || !excelData) {
+                showError('Her iki dosya da yüklenmelidir');
+                return;
+            }
+            
+            const result = document.getElementById('result');
+            
+            result.innerHTML = `
+                <div class="combined-indicator">
+                    <span>📋</span>
+                    <span>Birleştirilmiş Rapor: ${pdfData.ilceAdi}</span>
+                </div>
+                
+                <!-- Yapı Bilgileri Bölümü -->
+                <div class="report-section">
+                    <div class="report-title yapi">
+                        <span>🏢</span> Yapı Bilgileri
+                    </div>
+                    
+                    <div class="main-stat-card yapi">
+                        <div class="main-label">TOPLAM YAPI SAYISI</div>
+                        <div class="main-value">${excelData.genelToplam.toplam.toLocaleString('tr-TR')}</div>
+                        <div class="sub-stats-grid">
+                            <div class="sub-stat-card">
+                                <div class="sub-label">Mesken Yapı</div>
+                                <div class="sub-value">${excelData.genelToplam.mesken.toLocaleString('tr-TR')}</div>
+                            </div>
+                            <div class="sub-stat-card">
+                                <div class="sub-label">Kamu Yapı</div>
+                                <div class="sub-value">${excelData.genelToplam.kamu.toLocaleString('tr-TR')}</div>
+                            </div>
+                            <div class="sub-stat-card">
+                                <div class="sub-label">İşyeri Yapı</div>
+                                <div class="sub-value">${excelData.genelToplam.isyeri.toLocaleString('tr-TR')}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-wrapper">
+                        <div class="chart-toggle" onclick="toggleChart('combinedExcelChartContainer')">
+                            <div class="chart-toggle-text">
+                                <span>📊</span> Yapı Tipi Dağılımını Göster/Gizle
+                            </div>
+                            <div class="chart-toggle-icon" id="combinedExcelChartContainerIcon">▼</div>
+                        </div>
+                        <div class="chart-container" id="combinedExcelChartContainer">
+                            <canvas id="combinedExcelChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Bağımsız Bölüm Bilgileri Bölümü -->
+                <div class="report-section">
+                    <div class="report-title bolum">
+                        <span>📄</span> Bağımsız Bölüm Bilgileri
+                    </div>
+                    
+                    <div style="display: grid; gap: 16px; margin-bottom: 20px;">
+                        <div class="main-stat-card bolum-mesken">
+                            <div class="main-label">TOPLAM MESKEN (BÖLÜM)</div>
+                            <div class="main-value">${pdfData.meskenToplam.toLocaleString('tr-TR')}</div>
+                            <div class="sub-stats-grid">
+                                <div class="sub-stat-card">
+                                    <div class="sub-label">İkamet Amaçlı</div>
+                                    <div class="sub-value">${pdfData.ikamet_amacli.toLocaleString('tr-TR')}</div>
+                                </div>
+                                <div class="sub-stat-card">
+                                    <div class="sub-label">İkamet Harici</div>
+                                    <div class="sub-value">${pdfData.ikamet_harici.toLocaleString('tr-TR')}</div>
+                                </div>
+                                <div class="sub-stat-card">
+                                    <div class="sub-label">Kapıcı Dairesi</div>
+                                    <div class="sub-value">${pdfData.kapici.toLocaleString('tr-TR')}</div>
+                                </div>
+                                <div class="sub-stat-card">
+                                    <div class="sub-label">Mesken</div>
+                                    <div class="sub-value">${pdfData.mesken.toLocaleString('tr-TR')}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="main-stat-card bolum-isyeri">
+                            <div class="main-label">TOPLAM İŞYERİ (BÖLÜM)</div>
+                            <div class="main-value">${pdfData.isyeri.toLocaleString('tr-TR')}</div>
+                        </div>
+                        
+                        <div class="main-stat-card bolum-total">
+                            <div class="main-label">GENEL TOPLAM BAĞIMSIZ BÖLÜM</div>
+                            <div class="main-value">${pdfData.toplam.toLocaleString('tr-TR')}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-wrapper">
+                        <div class="chart-toggle" onclick="toggleChart('combinedPdfChartContainer')">
+                            <div class="chart-toggle-text">
+                                <span>📊</span> Bağımsız Bölüm Dağılımını Göster/Gizle
+                            </div>
+                            <div class="chart-toggle-icon" id="combinedPdfChartContainerIcon">▼</div>
+                        </div>
+                        <div class="chart-container" id="combinedPdfChartContainer">
+                            <canvas id="combinedPdfChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Mahalle Tablosu -->
+                <div class="report-section">
+                    <div class="report-title">
+                        <span>📋</span> Mahalle Bazlı Yapı Detayları
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Mahalle</th>
+                                    <th>Mesken Yapı</th>
+                                    <th>Kamu Yapı</th>
+                                    <th>İşyeri Yapı</th>
+                                    <th>Toplam Yapı</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${excelData.neighborhoods.map(n => `
+                                    <tr>
+                                        <td><strong>${n.name}</strong></td>
+                                        <td><span class="badge badge-mesken">${n.mesken.toLocaleString('tr-TR')}</span></td>
+                                        <td><span class="badge badge-kamu">${n.kamu.toLocaleString('tr-TR')}</span></td>
+                                        <td><span class="badge badge-isyeri">${n.isyeri.toLocaleString('tr-TR')}</span></td>
+                                        <td><strong>${n.toplam.toLocaleString('tr-TR')}</strong></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            result.style.display = 'block';
+            if (navigator.vibrate) navigator.vibrate([50, 100, 50]);
+            
+            setTimeout(() => {
+                // Excel Chart
+                const ctx1 = document.getElementById('combinedExcelChart').getContext('2d');
+                if (charts.combinedExcel) charts.combinedExcel.destroy();
+                charts.combinedExcel = new Chart(ctx1, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Mesken Yapı', 'Kamu Yapı', 'İşyeri Yapı'],
+                        datasets: [{
+                            data: [excelData.genelToplam.mesken, excelData.genelToplam.kamu, excelData.genelToplam.isyeri],
+                            backgroundColor: ['#4CAF50', '#2196F3', '#FF9800'],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { 
+                                position: 'bottom', 
+                                labels: { 
+                                    padding: 20, 
+                                    usePointStyle: true,
+                                    font: { size: 11 }
+                                } 
+                            }
+                        }
+                    }
+                });
+                
+                // PDF Chart
+                const ctx2 = document.getElementById('combinedPdfChart').getContext('2d');
+                if (charts.combinedPdf) charts.combinedPdf.destroy();
+                charts.combinedPdf = new Chart(ctx2, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['İkamet Amaçlı', 'İkamet Harici', 'Kapıcı Dairesi', 'Mesken', 'İşyeri'],
+                        datasets: [{
+                            data: [pdfData.ikamet_amacli, pdfData.ikamet_harici, pdfData.kapici, pdfData.mesken, pdfData.isyeri],
+                            backgroundColor: ['#4CAF50', '#8BC34A', '#CDDC39', '#FFC107', '#FF9800'],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { 
+                                position: 'bottom', 
+                                labels: { 
+                                    padding: 20, 
+                                    usePointStyle: true,
+                                    font: { size: 11 }
+                                } 
+                            }
+                        }
+                    }
+                });
+            }, 100);
+        }
+        
+        function resetAll() {
+            console.log('resetAll çağrıldı');
+            pdfData = null;
+            excelData = null;
+            currentFileType = 'pdf';
+            currentFile = null;
+            charts = {};
+            
+            document.getElementById('fileInput').value = '';
+            document.getElementById('fileName').style.display = 'none';
+            document.getElementById('analyzeBtn').disabled = true;
+            document.getElementById('combinedBtn').classList.remove('visible');
+            document.getElementById('combinedBtn').disabled = true;
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+            
+            setFileType('pdf');
+            updateStatus();
+            
+            if (navigator.vibrate) navigator.vibrate(50);
+        }
+        
+        // Sayfa yüklendiğinde ilk durumu ayarla
+        updateStatus();
+    </script>
+</body>
+</html>
